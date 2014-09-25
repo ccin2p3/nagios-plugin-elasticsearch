@@ -41,7 +41,10 @@ class ESIndex(object):
 
 
 class ESNode(object):
-    def __init__(self, name=None, esid=None, attributes={}):
+    def __init__(self, name=None, esid=None, attributes=None):
+        if attributes is None:
+            attributes = {}
+
         self.esid = esid
         self.name = name
         self.attributes = attributes
@@ -155,7 +158,7 @@ class ElasticSearchCheck(NagiosCheck):
                 master_elig = not (booleanise(
                     es_state['nodes'][esid]['attributes']
                     ['client']))
-            except KeyError, e:
+            except KeyError as e:
                 if e.args[0] != 'client':
                     raise
 
@@ -163,7 +166,7 @@ class ElasticSearchCheck(NagiosCheck):
                 master_elig = (booleanise(
                     es_state['nodes'][esid]['attributes']
                     ['master']))
-            except KeyError, e:
+            except KeyError as e:
                 if e.args[0] != 'master':
                     raise
 
@@ -217,7 +220,7 @@ class ElasticSearchCheck(NagiosCheck):
                 try:
                     node_location_map[node] = (
                         tuple(map(lambda a: attrs[a], failure_domain)))
-                except KeyError, e:
+                except KeyError as e:
                     # Nodes that do not store shards (e.g.: 'client'
                     # nodes) cannot be expected to have been configured
                     # with locational attributes.
@@ -409,7 +412,7 @@ class ElasticSearchCheck(NagiosCheck):
         # Assertion:  Each shard has one primary in STARTED or RELOCATING state.
         downgraded = False
 
-        for idx_name, idx in name_index_map.iteritems():
+        for idx_name, idx in name_index_map.items():
             for shard_no in range(idx.n_shards):
                 primary = index_primary_map[idx][shard_no]
                 if primary is None:
@@ -429,7 +432,7 @@ class ElasticSearchCheck(NagiosCheck):
         # Assertion:  Each primary has replicas in STARTED state.
         downgraded = False
 
-        for idx_name, idx in name_index_map.iteritems():
+        for idx_name, idx in name_index_map.items():
             expect_replicas = idx.n_replicas
 
             for shard_no in range(idx.n_shards):
@@ -482,7 +485,7 @@ class ElasticSearchCheck(NagiosCheck):
         downgraded = False
 
         if len(failure_domain) > 0:
-            for idx_name, idx in name_index_map.iteritems():
+            for idx_name, idx in name_index_map.items():
 
                 # Suppress this test if the index has not been
                 # configured with replicas.
@@ -575,11 +578,11 @@ def booleanise(b):
 def get_json(uri):
     try:
         f = urllib2.urlopen(uri)
-    except urllib2.HTTPError, e:
+    except urllib2.HTTPError as e:
         raise Status('unknown', ("API failure",
                                  None,
                                  "API failure:\n\n%s" % str(e)))
-    except urllib2.URLError, e:
+    except urllib2.URLError as e:
         # The server could be down; make this CRITICAL.
         raise Status('critical', (e.reason,))
 
