@@ -2,68 +2,53 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import json
 import nagiosplugin
 import nagiosplugin.state
-
 import urllib2
 
-try:
-	import json
-except ImportError:
-	import simplejson as json
-
-HEALTH = {'red': 0,
-		  'yellow': 1,
-		  'green': 2}
-
-RED = HEALTH['red']
-YELLOW = HEALTH['yellow']
-GREEN = HEALTH['green']
-
-HEALTH_MAP = {0: 'critical',
-			  1: 'warning',
-			  2: 'ok'}
 
 SHARD_STATE = {'UNASSIGNED': 1,
-			   'INITIALIZING': 2,
-			   'STARTED': 3,
-			   'RELOCATING': 4,
-			   'MISSING_PRIMARY': 5}
+				'INITIALIZING': 2,
+				'STARTED': 3,
+				'RELOCATING': 4,
+				'MISSING_PRIMARY': 5}
 
 NODE_METRICS = [["storesize", 'indices.store.size_in_bytes', "B"],
-			   ["documents", 'indices.docs.count', None],
+				["documents", 'indices.docs.count', None],
 
-			   ["index_ops", 'indices.indexing.index_total', None],
-			   ["index_time", 'indices.indexing.index_time_in_millis', "ms"],
+				["index_ops", 'indices.indexing.index_total', None],
+				["index_time", 'indices.indexing.index_time_in_millis', "ms"],
 
-			   ["flush_ops", 'indices.flush.total', None],
-			   ["flush_time", 'indices.flush.total_time_in_millis', "ms"],
+				["flush_ops", 'indices.flush.total', None],
+				["flush_time", 'indices.flush.total_time_in_millis', "ms"],
 
-			   ["throttle_time", "indices.store.throttle_time_in_millis", "ms"],
+				["throttle_time", "indices.store.throttle_time_in_millis", "ms"],
 
-			   ["index_ops", "indices.indexing.index_total", None],
-			   ["index_time", "indices.indexing.index_time_in_millis", "ms"],
-			   ["delete_ops", "indices.indexing.delete_total", None],
-			   ["delete_time", "indices.indexing.delete_time_in_millis", "ms"],
+				["index_ops", "indices.indexing.index_total", None],
+				["index_time", "indices.indexing.index_time_in_millis", "ms"],
+				["delete_ops", "indices.indexing.delete_total", None],
+				["delete_time", "indices.indexing.delete_time_in_millis", "ms"],
 
-			   ["get_ops", "indices.get.total", None],
-			   ["get_time", "indices.get.time_in_millis", "ms"],
-			   ["exists_ops", "indices.get.exists_total", None],
-			   ["exists_time", "indices.get.exists_time_in_millis", "ms"],
-			   ["missing_ops", "indices.get.missing_total", None],
-			   ["missing_time", "indices.get.missing_time_in_millis", "ms"],
+				["get_ops", "indices.get.total", None],
+				["get_time", "indices.get.time_in_millis", "ms"],
+				["exists_ops", "indices.get.exists_total", None],
+				["exists_time", "indices.get.exists_time_in_millis", "ms"],
+				["missing_ops", "indices.get.missing_total", None],
+				["missing_time", "indices.get.missing_time_in_millis", "ms"],
 
-			   ["query_ops", 'indices.search.query_total', None],
-			   ["query_time", 'indices.search.query_time_in_millis', "ms"],
-			   ["fetch_ops", "indices.search.fetch_total", None],
-			   ["fetch_time", "indices.search.fetch_time_in_millis", "ms"],
+				["query_ops", 'indices.search.query_total', None],
+				["query_time", 'indices.search.query_time_in_millis', "ms"],
+				["fetch_ops", "indices.search.fetch_total", None],
+				["fetch_time", "indices.search.fetch_time_in_millis", "ms"],
 
-			   ["merge_ops", "indices.merges.total", None],
-			   ["merge_time", "indices.merges.time_in_millis", "ms"],
+				["merge_ops", "indices.merges.total", None],
+				["merge_time", "indices.merges.time_in_millis", "ms"],
 
-			   ["refresh_ops", "indices.refresh.total", None],
-			   ["refresh_time", "indices.refresh.total_time_in_millis", "ms"],
-	]
+				["refresh_ops", "indices.refresh.total", None],
+				["refresh_time", "indices.refresh.total_time_in_millis", "ms"],
+]
+
 
 class ESShard(object):
 	def __init__(self, state):
@@ -85,10 +70,6 @@ class ESNode(object):
 		self.esid = esid
 		self.name = name
 		self.attributes = attributes
-
-class ElasticSearchAPIException(Exception):
-	def __init__(self, message):
-		self.message = message
 
 
 class ElasticSearchAPI(object):
@@ -137,18 +118,19 @@ class ElasticSearchAPI(object):
 		try:
 			f = urllib2.urlopen(uri)
 		except urllib2.HTTPError as e:
-			raise ElasticSearchAPIException('API Failure: %s' % str(e))
+			raise RuntimeError('Elastic Search API Failure: %s' % str(e))
 		except urllib2.URLError as e:
-			raise ElasticSearchAPIException('API URLError: %s' % str(e))
+			raise RuntimeError('Elastic Search API URLError: %s' % str(e))
 
 		body = f.read()
 
 		try:
 			j = json.loads(body)
 		except ValueError as msg:
-			raise ElasticSearchAPIException("API returned non-JSON value: %s" % str(msg))
+			raise RuntimeError("Elastic Search API returned non-JSON value: %s" % str(msg))
 
 		return j
+
 
 class ESClusterHealth(nagiosplugin.Context):
 	def evaluate(self, metric, resource):
@@ -163,11 +145,10 @@ class ESClusterHealth(nagiosplugin.Context):
 		else:
 			return self.result_cls(nagiosplugin.state.Unknown, "Cluster status is unknown: %s" % metric.value, metric)
 
+
 class ShardStateContext(nagiosplugin.Context):
 	# Assertion:  Each shard has one primary in STARTED or RELOCATING state.
 	def evaluate(self, metric, resource):
-		msg = None
-
 		shard_states = metric.value
 		for idx_name in shard_states:
 			for shard_no in shard_states[idx_name]:
@@ -184,8 +165,6 @@ class ShardStateContext(nagiosplugin.Context):
 class ShardReplicaContext(nagiosplugin.Context):
 	# Assertion: Each shard has replicas in STARTED state
 	def evaluate(self, metric, resource):
-		msg = None
-
 		shard_replica = metric.value
 		for idx_name in shard_replica:
 			for shard_no in shard_replica[idx_name]:
@@ -203,8 +182,6 @@ class ShardReplicaContext(nagiosplugin.Context):
 
 class ShardReplicaLocation(nagiosplugin.Context):
 	def evaluate(self, metric, resource):
-		msg = None
-
 		replica_loc = metric.value
 
 		for idx_name in replica_loc:
@@ -224,7 +201,6 @@ class ShardReplicaLocation(nagiosplugin.Context):
 class ElasticSearchCheck(nagiosplugin.Resource):
 	def __init__(self, args):
 		self.args = args
-		self.health = HEALTH['green']
 
 	def probe(self):
 		host = self.args.host
@@ -242,7 +218,6 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 		# information here.  We are primarily interested in ES' cluster 'health colour':  a little rating ES gives itself to describe
 		# how much pain it is in.
 		es_health = es_server.get_health()
-		their_health = HEALTH[es_health['status'].lower()]
 
 		# Request cluster 'state'.  This be where all the meat at, yo. Here, we can see a list of all nodes, indexes, and shards in
 		# the cluster.  This response will also contain a map detailing where all shards are living at this point in time.
@@ -320,8 +295,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 			if len(failure_domain) > 0:
 				node_location_map[node] = tuple()
 				try:
-					node_location_map[node] = (
-						tuple(map(lambda a: attrs[a], failure_domain)))
+					node_location_map[node] = (tuple(map(lambda a: attrs[a], failure_domain)))
 				except KeyError as e:
 					# Nodes that do not store shards (e.g.: 'client'
 					# nodes) cannot be expected to have been configured
@@ -359,9 +333,9 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 			idx = name_index_map[i]
 
 			if idx not in index_primary_map:
-				index_primary_map[idx] = dict(map(lambda n: (n, None), range(idx.n_shards)))
+				index_primary_map[idx] = dict(map(lambda m: (m, None), range(idx.n_shards)))
 
-			idx_shards = (es_state['routing_table']['indices'] [i]['shards'])
+			idx_shards = (es_state['routing_table']['indices'][i]['shards'])
 			for d in idx_shards:
 				primary = None
 				replicas = []
@@ -431,7 +405,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 		# Collect data for shard primaries
 		shard_states = {}
 		for idx_name, idx in name_index_map.items():
-			shard_states[idx_name]={}
+			shard_states[idx_name] = {}
 			for shard_no in range(idx.n_shards):
 				primary = index_primary_map[idx][shard_no]
 				if primary is None:
@@ -445,7 +419,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 		shard_replica = {}
 		for idx_name, idx in name_index_map.items():
 			expect_replicas = idx.n_replicas
-			shard_replica[idx_name]={}
+			shard_replica[idx_name] = {}
 
 			for shard_no in range(idx.n_shards):
 				shard_replica[idx_name][shard_no] = {}
@@ -468,7 +442,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 		replica_loc = {}
 		if len(failure_domain) > 0:
 			for idx_name, idx in name_index_map.items():
-				replica_loc[idx_name]={}
+				replica_loc[idx_name] = {}
 
 				# Suppress this test if the index has not been
 				# configured with replicas.
@@ -476,7 +450,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 					continue
 
 				for shard_no in range(idx.n_shards):
-					replica_loc[idx_name][shard_no]={'loc_redundancy': set(), 'vulnerable_shards': set()}
+					replica_loc[idx_name][shard_no] = {'loc_redundancy': set(), 'vulnerable_shards': set()}
 
 					primary = index_primary_map[idx][shard_no]
 
@@ -527,14 +501,15 @@ def version(version_string):
 	of ints, allowing for reasonable comparison."""
 	return tuple([int(i) for i in version_string.split('.')])
 
+
 @nagiosplugin.guarded
 def main():
 	argp = argparse.ArgumentParser()
-	argp.add_argument('-v', '--verbose', action='count', default=3)  # FIXME: change to 0
+	argp.add_argument('-v', '--verbose', action='count', default=0)  # FIXME: change to 0
 
 	argp.add_argument('-f', '--failure-domain', help="A comma-separated list of ElasticSearch attributes that make up your cluster's failure domain[0]. This should be the same list "
-						 "of attributes that ElasticSearch's location-aware shard allocator has been configured with. If this option is supplied, additional checks are carried out to ensure that primary "
-						 "and replica shards are not stored in the same failure domain. [0]: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/modules-cluster.html")
+						"of attributes that ElasticSearch's location-aware shard allocator has been configured with. If this option is supplied, additional checks are carried out to ensure that primary "
+						"and replica shards are not stored in the same failure domain. [0]: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/modules-cluster.html")
 
 	argp.add_argument('-H', '--host', help="Hostname or network address to probe. The ElasticSearch API should be listening here. Defaults to 'localhost'.", default='localhost')
 
@@ -551,17 +526,13 @@ def main():
 			raise ValueError("'master_nodes' must be greater than zero")
 
 	check = nagiosplugin.Check(ElasticSearchCheck(args))
-	check.add(ShardStateContext('shard_states'))
-	check.add(ShardReplicaContext('shard_replica'))
-	check.add(ShardReplicaLocation('replica_location'))
-
-	check.add(ESClusterHealth('cluster_health'))
 
 	if args.master_nodes is not None:
 		check.add(nagiosplugin.ScalarContext('cluster_mnodes', critical="%d:%d" % (args.master_nodes, args.master_nodes), fmt_metric='{value} master nodes in cluster'))
 	else:
 		check.add(nagiosplugin.ScalarContext('cluster_mnodes', fmt_metric='{value} master nodes in cluster'))
-	check.add(nagiosplugin.ScalarContext('cluster_nodes', fmt_metric='{value} nodes in cluster'))
+
+	check.add(nagiosplugin.ScalarContext('cluster_nodes'))
 	check.add(nagiosplugin.ScalarContext('cluster_data_nodes'))
 	check.add(nagiosplugin.ScalarContext('cluster_act_shards'))
 	check.add(nagiosplugin.ScalarContext('cluster_reloc_shards'))
@@ -574,7 +545,12 @@ def main():
 	for metric in NODE_METRICS:
 		check.add(nagiosplugin.ScalarContext(metric[0]))
 
-	check.main()
+	check.add(ShardStateContext('shard_states'))
+	check.add(ShardReplicaContext('shard_replica'))
+	check.add(ShardReplicaLocation('replica_location'))
+	check.add(ESClusterHealth('cluster_health'))
+
+	check.main(verbose=args.verbose)
 
 if __name__ == '__main__':
 	main()
