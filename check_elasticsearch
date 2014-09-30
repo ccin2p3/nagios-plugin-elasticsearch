@@ -132,6 +132,11 @@ class ElasticSearchAPI(object):
 		return j
 
 
+class ElasticSearchSummary(nagiosplugin.Summary):
+	def ok(self, results):
+		return "Monitoring cluster '%s'" % (results['cluster_name'].metric.value)
+
+
 class ESClusterHealth(nagiosplugin.Context):
 	def evaluate(self, metric, resource):
 		msg = "Cluster status is %s" % metric.value
@@ -144,6 +149,10 @@ class ESClusterHealth(nagiosplugin.Context):
 			return self.result_cls(nagiosplugin.state.Critical, msg, metric)
 		else:
 			return self.result_cls(nagiosplugin.state.Unknown, "Cluster status is unknown: %s" % metric.value, metric)
+
+
+class ESClusterName(nagiosplugin.Context):
+	pass
 
 
 class ShardStateContext(nagiosplugin.Context):
@@ -366,6 +375,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 		# same figures for these labels.  Not ideal, but 'tis better to
 		# graph this data multiple times than not graph it at all.
 		metrics = [["cluster_health", es_health["status"]],
+					["cluster_name", es_health["cluster_name"]],
 					["cluster_nodes", n_nodes],
 					["cluster_mnodes", n_mnodes],
 					["cluster_data_nodes", n_dnodes],
@@ -531,7 +541,6 @@ def main():
 		check.add(nagiosplugin.ScalarContext('cluster_mnodes', critical="%d:%d" % (args.master_nodes, args.master_nodes), fmt_metric='{value} master nodes in cluster'))
 	else:
 		check.add(nagiosplugin.ScalarContext('cluster_mnodes', fmt_metric='{value} master nodes in cluster'))
-
 	check.add(nagiosplugin.ScalarContext('cluster_nodes'))
 	check.add(nagiosplugin.ScalarContext('cluster_data_nodes'))
 	check.add(nagiosplugin.ScalarContext('cluster_act_shards'))
@@ -549,6 +558,9 @@ def main():
 	check.add(ShardReplicaContext('shard_replica'))
 	check.add(ShardReplicaLocation('replica_location'))
 	check.add(ESClusterHealth('cluster_health'))
+	check.add(ESClusterName('cluster_name', 'Monitoring cluster {value}'))
+
+	check.add(ElasticSearchSummary())
 
 	check.main(verbose=args.verbose)
 
