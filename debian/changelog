@@ -1,0 +1,5 @@
+nagios-plugin-elasticsearch (1.0.2+cygnus1) wheezy; urgency=low
+
+  * Switched to nagiosplugin, packaged for debian wheezy
+
+ -- Peter Adam <p.adam@cygnusnetworks.de>  Mon, 29 Sep 2014 15:06:03 +0100
