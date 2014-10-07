@@ -35,13 +35,8 @@ colour'.  If our health colour concurs with ElasticSearch's health
 colour, then we can be reasonably sure we know what is wrong with the 
 cluster and may report that problem to the operator.
 
-[cluster-health]: http://www.elasticsearch.org/guide/reference/api/admin-cluster-health.html
+[cluster-health]: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/cluster-health.html
 
-Installation
-------------
-
-`pip install nagios-plugin-elasticsearch` (from
-[PyPi](https://pypi.python.org/pypi/nagios-plugin-elasticsearch/1.0.0)).
 
 Usage:
 -----
@@ -77,7 +72,7 @@ Options:
 Requirements
 ------------
 
-- Python 2.5 (with simplejson), 2.6, or 2.7
-- [pynagioscheck][]
+- Python 2.7
+- [nagiosplugin][]
 
-[pynagioscheck]: https://github.com/saj/pynagioscheck
+[nagiosplugin]: https://projects.gocept.com/projects/nagiosplugin/wiki
