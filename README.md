@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/CygnusNetworks/nagios-plugin-elasticsearch.svg?branch=master)](https://travis-ci.org/CygnusNetworks/nagios-plugin-elasticsearch)
 check_elasticsearch
 ===================
 
