@@ -86,7 +86,7 @@ class ElasticSearchAPI(object):
 
 		self.version = None
 
-		if not self.prefix.endswith('/'):
+		if len(prefix) > 0 and not self.prefix.endswith('/'):
 			self.prefix += '/'
 
 		self.get_initial_data()
@@ -107,7 +107,7 @@ class ElasticSearchAPI(object):
 		return self.get_api_data('_cluster/state')
 
 	def get_stats(self):
-		return self.get_api_data('_nodes/_local/stats?all=true')
+		return self.get_api_data('_nodes/_local/stats')
 
 	def get_api_data(self, suffix):
 		uri = (r'http://%s:%d/%s%s' % (self.host, self.port, self.prefix, suffix))

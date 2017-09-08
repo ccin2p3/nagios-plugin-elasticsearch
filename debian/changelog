@@ -1,3 +1,10 @@
+nagios-plugin-elasticsearch (1.0.3+cygnus1) stretch; urgency=low
+
+  * Build for stretch
+  * Change API requests for elasticsearch 5.5
+
+ -- Peter Adam <p.adam@cygnusnetworks.de>  Fri, 08 Sep 2017 09:32:40 +0200
+
 nagios-plugin-elasticsearch (1.0.2+cygnus2) jessie; urgency=low
 
   * Build for jessie
