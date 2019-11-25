@@ -3,9 +3,9 @@
 
 import argparse
 import json
+import urllib2
 import nagiosplugin
 import nagiosplugin.state
-import urllib2
 
 
 SHARD_STATE = {'UNASSIGNED': 1,
@@ -210,7 +210,8 @@ class ShardReplicaLocation(nagiosplugin.Context):
         for idx_name in replica_loc:
             for shard_no in replica_loc[idx_name]:
                 if replica_loc[idx_name][shard_no]['vulnerable_shards'].isdisjoint(replica_loc[idx_name][shard_no]['local_shards']):
-                    # Suppress the problem unless at least one of the vulnerable shards is on this data node.
+                    # Suppress the problem unless at least one of the
+                    # vulnerable shards is on this data node.
                     continue
 
                 if len(replica_loc[idx_name][shard_no]['loc_redundancy']) == 1:
@@ -234,21 +235,25 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 
         failure_domain = []
         if (isinstance(self.args.failure_domain, str) and
-                len(self.args.failure_domain) > 0):
+                self.args.failure_domain):
             failure_domain.extend(self.args.failure_domain.split(","))
 
         es_server = ElasticSearchAPI(host, port, prefix)
 
-        # Request cluster 'health'.  /_cluster/health is like a tl;dr for /_cluster/state (see below).  There is very little useful
-        # information here.  We are primarily interested in ES' cluster 'health colour':  a little rating ES gives itself to describe
+        # Request cluster 'health'.  /_cluster/health is like a tl;dr for /_cluster/state
+        # (see below).  There is very little useful information here.  We are primarily
+        # interested in ES' cluster 'health colour':  a little rating ES gives itself to describe
         # how much pain it is in.
         es_health = es_server.get_health()
 
-        # Request cluster 'state'.  This be where all the meat at, yo. Here, we can see a list of all nodes, indexes, and shards in
-        # the cluster.  This response will also contain a map detailing where all shards are living at this point in time.
+        # Request cluster 'state'.  This be where all the meat at,
+        # yo. Here, we can see a list of all nodes, indexes, and shards in
+        # the cluster.  This response will also contain a map detailing
+        # where all shards are living at this point in time.
         es_state = es_server.get_state()
 
-        # Request a bunch of useful numbers that we export as perfdata. Details like the number of get, search, and indexing operations come from here.
+        # Request a bunch of useful numbers that we export as perfdata. Details like the number
+        # of get, search, and indexing operations come from here.
         es_stats = es_server.get_stats()
 
         myid = es_stats['nodes'].keys()[0]
@@ -256,7 +261,8 @@ class ElasticSearchCheck(nagiosplugin.Resource):
         n_nodes = es_health['number_of_nodes']
         n_dnodes = es_health['number_of_data_nodes']
 
-        # Unlike n_dnodes (the number of data nodes), we must compute the number of master-eligible nodes ourselves.
+        # Unlike n_dnodes (the number of data nodes), we must compute the number of
+        # master-eligible nodes ourselves.
         n_mnodes = 0
         for esid in es_state['nodes']:
             master_elig = True
@@ -320,7 +326,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
             node_esid_map[node] = n
             node_shard_map[node] = []
 
-            if len(failure_domain) > 0:
+            if failure_domain:
                 node_location_map[node] = tuple()
                 try:
                     node_location_map[node] = (
@@ -385,7 +391,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 
                         node_shard_map[node].append(shard)
 
-                        if len(failure_domain) > 0:
+                        if failure_domain:
                             loc = node_location_map[esid_node_map[s['node']]]
                             shard_location_map[shard] = loc
 
@@ -475,7 +481,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 
         # Collect replica location data
         replica_loc = {}
-        if len(failure_domain) > 0:
+        if failure_domain:
             for idx_name, idx in name_index_map.items():
                 replica_loc[idx_name] = {}
 
@@ -544,25 +550,36 @@ def version(version_string):
 
 @nagiosplugin.guarded
 def main():
+    """main"""
     argp = argparse.ArgumentParser()
     argp.add_argument('-v', '--verbose', action='count',
-                      default=0)  # FIXME: change to 0
-
-    argp.add_argument('-f', '--failure-domain', help="A comma-separated list of ElasticSearch attributes that make up your cluster's failure domain[0]. This should be the same list "
-                      "of attributes that ElasticSearch's location-aware shard allocator has been configured with. If this option is supplied, additional checks are carried out to ensure that primary "
-                      "and replica shards are not stored in the same failure domain. [0]: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/modules-cluster.html")
+                      default=0)
 
     argp.add_argument(
-        '-H', '--host', help="Hostname or network address to probe. The ElasticSearch API should be listening here. Defaults to 'localhost'.", default='localhost')
+        '-f', '--failure-domain', help="A comma-separated list of ElasticSearch"
+        "attributes that make up your cluster's failure domain[0]. This should be"
+        "the same list of attributes that ElasticSearch's location-aware shard"
+        "allocator has been configured with. If this option is supplied, additional"
+        "checks are carried out to ensure that primary and replica shards are not"
+        "stored in the same failure domain."
+        "[0]: https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-cluster.html")
+
+    argp.add_argument(
+        '-H', '--host', help="Hostname or network address to probe. The ElasticSearch API should"
+        "be listening here. Defaults to 'localhost'.", default='localhost')
 
     argp.add_argument('-m', '--master-nodes', type=int,
-                      help="Issue a warning if the number of master-eligible nodes in the cluster drops below this number. By default, do not monitor the number of nodes in the cluster.", default=None)
+                      help="Issue a warning if the number of master-eligible nodes in the cluster"
+                      "drops below this number. By default, do not monitor the number of nodes"
+                      "in the cluster.", default=None)
 
     argp.add_argument('-p', '--port', type=int,
-                      help="TCP port to probe. The ElasticSearch API should be listening here. Defaults to 9200.", default=9200)
+                      help="TCP port to probe. The ElasticSearch API should be listening here."
+                      "Defaults to 9200.", default=9200)
 
     argp.add_argument(
-        '-r', '--prefix', help="Optional prefix (e.g. 'es') for the ElasticSearch API. Defaults to ''.", default='')
+        '-r', '--prefix', help="Optional prefix (e.g. 'es') for the ElasticSearch API."
+        "Defaults to ''.", default='')
     args = argp.parse_args()
 
     if args.master_nodes is not None:
