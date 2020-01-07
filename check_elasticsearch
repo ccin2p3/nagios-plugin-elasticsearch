@@ -3,11 +3,11 @@
 
 import argparse
 import json
+import urllib2
 import ssl
 from base64 import b64encode
 import nagiosplugin
 import nagiosplugin.state
-import urllib2
 
 
 SHARD_STATE = {'UNASSIGNED': 1,
@@ -237,7 +237,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 
 		failure_domain = []
 		if (isinstance(self.args.failure_domain, str) and
-					len(self.args.failure_domain) > 0):
+					self.args.failure_domain):
 			failure_domain.extend(self.args.failure_domain.split(","))
 
 		es_server = ElasticSearchAPI(host, port, prefix, scheme, username, password)
@@ -320,7 +320,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 			node_esid_map[node] = n
 			node_shard_map[node] = []
 
-			if len(failure_domain) > 0:
+			if failure_domain:
 				node_location_map[node] = tuple()
 				try:
 					node_location_map[node] = (tuple(map(lambda a: attrs[a], failure_domain)))
@@ -469,7 +469,7 @@ class ElasticSearchCheck(nagiosplugin.Resource):
 
 		# Collect replica location data
 		replica_loc = {}
-		if len(failure_domain) > 0:
+		if failure_domain:
 			for idx_name, idx in name_index_map.items():
 				replica_loc[idx_name] = {}
 
